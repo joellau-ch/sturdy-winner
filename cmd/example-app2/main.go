@@ -1,3 +1,4 @@
+// example of 2nd executable file within same project
 package main
 
 import (
