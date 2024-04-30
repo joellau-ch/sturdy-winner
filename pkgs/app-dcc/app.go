@@ -6,11 +6,16 @@ import (
 	interfaceapp "github.com/coinhako/joellau-ch/sturdy-winner/pkgs/interface-app"
 	interfacepubsub "github.com/coinhako/joellau-ch/sturdy-winner/pkgs/interface-pub-sub"
 	simplemessagerouter "github.com/coinhako/joellau-ch/sturdy-winner/pkgs/simple-message-router"
+	"github.com/pkg/errors"
 )
 
 // ================
-// `DccApp` is an `application` that contains other applications
-// (Mediator / Coordinator pattern)
+// At a high level, this file is only concerned that
+// `DccApp` is composed of multiple sub-applications
+// (MaxxTrader FIX Client, Talos WS Client)
+//
+// See: [Composite Pattern](https://refactoring.guru/design-patterns/composite)
+//
 // ================
 //
 //	                      --------
@@ -26,76 +31,71 @@ import (
 // |                 |              |                       |
 //
 //	-----------------                -----------------------
-//
-// ================
-// Additional Notes
-// ================
-//
-//   - Each of these sub-applications act as *Publishers*
-//
-//   - We attach *Subscribers* to each topic / route that will
-//     carry out business use cases (transform & persistance)
 type DccApp struct {
-	maxxTraderApp interfaceapp.App
-	talosApp      interfaceapp.App
-
-	MessageRouter interfacepubsub.PubSubber[any]
+	Apps          AppRegistry
+	MessageRouter MessageRouter
 }
 
 var _ interfaceapp.App = &DccApp{}
+
+type MessageRouter interfacepubsub.PubSubber[any]
+
+type NewAppDefinition struct {
+	Name string
+	New  AppFactoryFunc
+}
+
+var apps = []NewAppDefinition{
+	{
+		"MaxxTraderFixClient",
+		func(ps interfacepubsub.PubSubber[any]) (interfaceapp.App, error) {
+			return NewMaxxTraderFixClient(ps)
+		},
+	},
+	{
+		"TalosWebsocketClient",
+		func(ps interfacepubsub.PubSubber[any]) (interfaceapp.App, error) {
+			return NewTalosWsClient(ps)
+		},
+	},
+}
+
+type AppFactoryFunc func(interfacepubsub.PubSubber[any]) (interfaceapp.App, error)
 
 func New() (app *DccApp, err error) {
 	app = &DccApp{}
 
 	// Init MessageRouter
-	messageRouter := simplemessagerouter.NewSimpleMessageRouter()
+	app.MessageRouter = simplemessagerouter.NewSimpleMessageRouter()
 
-	// Setup MaxxTrader FIX Client
-	go func(messageRouter interfacepubsub.PubSubber[any]) {
-		if app.maxxTraderApp, err = NewMaxxTraderFixClient(messageRouter); err != nil {
-			// TODO: handle error
-			return
+	// Register Applications
+	for _, newapp := range apps {
+		subApp, err := newapp.New(app.MessageRouter)
+		if err != nil {
+			return nil, err
 		}
-	}(messageRouter)
-
-	// Setup Talos WS Client
-	go func(messageRouter interfacepubsub.PubSubber[any]) {
-		if app.talosApp, err = NewTalosWsClient(messageRouter); err != nil {
-			// TODO: handle error
-			return
-		}
-	}(messageRouter)
-
-	// Register Routes (TODO: find where to put these, avoid `any` where possible)
-	messageRouter.Subscribe(RouteMaxxTraderExecutionReport, HandleMaxxTraderExecutionReport)
-	messageRouter.Subscribe(RouteTalosExecutionReport, HandleTalosExecutionReport)
-	messageRouter.Subscribe(RouteTalosClientExecutionReport, HandleTalosClientExecutionReport)
-
-	// Setup MessageRouter
-	app.MessageRouter = messageRouter
+		app.Apps.Register(newapp.Name, subApp)
+	}
 
 	return
 }
 
 func (d *DccApp) Start(ctx context.Context) (err error) {
-	if err = d.maxxTraderApp.Start(ctx); err != nil {
-		return
-	}
-
-	if err = d.talosApp.Start(ctx); err != nil {
-		return
+	for name, app := range d.Apps {
+		err = app.Start(ctx)
+		if err != nil {
+			return errors.Wrapf(err, "could not start app: %s", name)
+		}
 	}
 	return nil
 }
 
 func (d *DccApp) Stop(ctx context.Context) (err error) {
-	if err = d.maxxTraderApp.Stop(ctx); err != nil {
-		return
+	for name, app := range d.Apps {
+		err = app.Stop(ctx)
+		if err != nil {
+			return errors.Wrapf(err, "could not stop app: %s", name)
+		}
 	}
-
-	if err = d.talosApp.Stop(ctx); err != nil {
-		return
-	}
-
 	return nil
 }
