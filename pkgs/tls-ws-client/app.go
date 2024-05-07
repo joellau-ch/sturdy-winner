@@ -3,7 +3,7 @@ package tlswsclient
 import (
 	"context"
 
-	interfaceapp "github.com/coinhako/joellau-ch/sturdy-winner/pkgs/interface-app"
+	"github.com/coinhako/joellau-ch/sturdy-winner/pkgs/app"
 )
 
 type TalosApp struct {
@@ -12,7 +12,7 @@ type TalosApp struct {
 	// TODO: list other hooks here
 }
 
-var _ interfaceapp.App = &TalosApp{}
+var _ app.App = &TalosApp{}
 
 func New() (app *TalosApp, err error) {
 	app = &TalosApp{}

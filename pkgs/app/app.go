@@ -1,5 +1,5 @@
 // interface for applications
-package interfaceapp
+package app
 
 import "context"
 

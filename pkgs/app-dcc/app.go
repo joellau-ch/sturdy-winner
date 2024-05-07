@@ -3,9 +3,8 @@ package appdcc
 import (
 	"context"
 
-	interfaceapp "github.com/coinhako/joellau-ch/sturdy-winner/pkgs/interface-app"
-	interfacepubsub "github.com/coinhako/joellau-ch/sturdy-winner/pkgs/interface-pub-sub"
-	simplemessagerouter "github.com/coinhako/joellau-ch/sturdy-winner/pkgs/simple-message-router"
+	interfaceapp "github.com/coinhako/joellau-ch/sturdy-winner/pkgs/app"
+	msgrtr "github.com/coinhako/joellau-ch/sturdy-winner/pkgs/message-router"
 	"github.com/pkg/errors"
 )
 
@@ -15,67 +14,21 @@ import (
 // (MaxxTrader FIX Client, Talos WS Client)
 //
 // See: [Composite Pattern](https://refactoring.guru/design-patterns/composite)
-//
-// ================
-//
-//	                      --------
-//	                     | DccApp |
-//	                      --------
-//	                         |
-//	       .-------------------------------------.
-//	       v                                     v
-//	-----------------                -----------------------
-//
-// |                 |              |                       |
-// | Talos WS Client |              | MaxxTrader FIX Client |
-// |                 |              |                       |
-//
-//	-----------------                -----------------------
 type DccApp struct {
 	Apps          AppRegistry
-	MessageRouter MessageRouter
+	MessageRouter msgrtr.MessageRouter[RouteKey, RouteMessage, RouteSubId]
 }
 
 var _ interfaceapp.App = &DccApp{}
 
-type MessageRouter interfacepubsub.PubSubber[any]
-
-type NewAppDefinition struct {
-	Name string
-	New  AppFactoryFunc
-}
-
-var apps = []NewAppDefinition{
-	{
-		"MaxxTraderFixClient",
-		func(ps interfacepubsub.PubSubber[any]) (interfaceapp.App, error) {
-			return NewMaxxTraderFixClient(ps)
-		},
-	},
-	{
-		"TalosWebsocketClient",
-		func(ps interfacepubsub.PubSubber[any]) (interfaceapp.App, error) {
-			return NewTalosWsClient(ps)
-		},
-	},
-}
-
-type AppFactoryFunc func(interfacepubsub.PubSubber[any]) (interfaceapp.App, error)
+type RouteKey = msgrtr.RouteKey
+type RouteMessage = msgrtr.Message
+type RouteSubId = msgrtr.SubscriptionId
 
 func New() (app *DccApp, err error) {
 	app = &DccApp{}
-
-	// Init MessageRouter
-	app.MessageRouter = simplemessagerouter.NewSimpleMessageRouter()
-
-	// Register Applications
-	for _, newapp := range apps {
-		subApp, err := newapp.New(app.MessageRouter)
-		if err != nil {
-			return nil, err
-		}
-		app.Apps.Register(newapp.Name, subApp)
-	}
+	router, err := msgrtr.NewSimpleMessageRouter()
+	app.MessageRouter = router
 
 	return
 }
@@ -87,7 +40,8 @@ func (d *DccApp) Start(ctx context.Context) (err error) {
 			return errors.Wrapf(err, "could not start app: %s", name)
 		}
 	}
-	return nil
+
+	return
 }
 
 func (d *DccApp) Stop(ctx context.Context) (err error) {
@@ -97,5 +51,6 @@ func (d *DccApp) Stop(ctx context.Context) (err error) {
 			return errors.Wrapf(err, "could not stop app: %s", name)
 		}
 	}
-	return nil
+
+	return
 }

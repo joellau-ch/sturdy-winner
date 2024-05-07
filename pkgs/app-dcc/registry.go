@@ -3,7 +3,7 @@ package appdcc
 import (
 	"fmt"
 
-	interfaceapp "github.com/coinhako/joellau-ch/sturdy-winner/pkgs/interface-app"
+	interfaceapp "github.com/coinhako/joellau-ch/sturdy-winner/pkgs/app"
 )
 
 type AppRegistry map[string]interfaceapp.App

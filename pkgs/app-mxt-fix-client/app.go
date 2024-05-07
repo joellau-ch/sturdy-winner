@@ -4,16 +4,16 @@ package appmxtfixclient
 import (
 	"context"
 
-	interfaceapp "github.com/coinhako/joellau-ch/sturdy-winner/pkgs/interface-app"
-	"github.com/quickfixgo/fix44/executionreport"
+	"github.com/coinhako/joellau-ch/sturdy-winner/pkgs/app"
+	simplemessagerouter "github.com/coinhako/joellau-ch/sturdy-winner/pkgs/message-router"
 )
 
 type MaxxTraderApp struct {
-	ExecutionReportHandler func(executionreport executionreport.ExecutionReport) error
 	// TODO: list other hooks here
+	MessageRouter *simplemessagerouter.MessageRouter[simplemessagerouter.RouteKey, simplemessagerouter.Message, simplemessagerouter.SubscriptionId]
 }
 
-var _ interfaceapp.App = &MaxxTraderApp{}
+var _ app.App = &MaxxTraderApp{}
 
 func New() (app *MaxxTraderApp, err error) {
 	app = &MaxxTraderApp{}
