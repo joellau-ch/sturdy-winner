@@ -1,5 +1,5 @@
 // supporting types
-package simplemessagerouter
+package smr
 
 // T: topic key
 //   - must allow allow comparison via equality operator

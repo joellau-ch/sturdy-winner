@@ -1,5 +1,5 @@
 // erorr types and helpers
-package simplemessagerouter
+package smr
 
 import (
 	"fmt"

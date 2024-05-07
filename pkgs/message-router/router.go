@@ -1,4 +1,4 @@
-package simplemessagerouter
+package smr
 
 import (
 	"log"
